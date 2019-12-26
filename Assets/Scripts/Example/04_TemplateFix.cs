@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using IFix;
 
+#if !PATCH_VERSION
 public static class TemplateFix
 {
     public static T GetComponent<T>(this GameObject root, string name)
@@ -10,12 +11,13 @@ public static class TemplateFix
         return root.transform.Find<T>(name + "///");
     }
 }
-
-//public static class TemplateFix
-//{
+#else
+public static class TemplateFix
+{
 //    [Patch]
-//    public static T GetComponent<T>(this GameObject root, string name)
-//    {
-//        return root.transform.Find<T>(name);
-//    }
-//}
+    public static T GetComponent<T>(this GameObject root, string name)
+    {
+        return root.transform.Find<T>(name);
+    }
+}
+#endif

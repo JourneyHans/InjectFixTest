@@ -5,42 +5,38 @@ using IFix;
 
 public class SimpleFix
 {
-//    [Patch]
-//    public void Add(int a, int b)
-//    {
-//        Debug.LogFormat("{0} + {1} = {2}", a, b, a + b);
-//    }
-
-    public void Add(int a, int b)
+#if !PATCH_VERSION
+    public string Add(int a, int b)
     {
-        Debug.LogFormat("{0} + {1} = {2}", a, b, a - b);
+        return $"{a} + {b} = {a - b}";
     }
 
-    public void Add(string s1, string s2)
+    public string Add(string s1, string s2)
     {
-        Debug.LogFormat("{0} connects {1} equals {2}", s1, s2, s1);
+        return $"{s1} connects {s2} equals {s1}";
     }
 
-    public static void Add(float a, float b)
+    public static string Add(float a, float b)
     {
-        Debug.LogFormat("{0} + {1} = {2}", a, b, a / b);
+        return $"{a} + {b} = {a / b}";
     }
-
-//    [Patch]
-//    public void Add(int a, int b)
-//    {
-//        Debug.LogFormat("{0} + {1} = {2}", a, b, a + b);
-//    }
-//
-//    [Patch]
-//    public void Add(string s1, string s2)
-//    {
-//        Debug.LogFormat("{0} connects {1} equals {2}", s1, s2, s1 + s2);
-//    }
-//
-//    [Patch]
-//    public static void Add(float a, float b)
-//    {
-//        Debug.LogFormat("{0} + {1} = {2}", a, b, a + b);
-//    }
+#else
+    [Patch]
+    public string Add(int a, int b)
+    {
+        return $"{a} + {b} = {a + b}";
+    }
+    
+    [Patch]
+    public string Add(string s1, string s2)
+    {
+        return $"{s1} connects {s2} equals {s1 + s2}";
+    }
+    
+    [Patch]
+    public static string Add(float a, float b)
+    {
+        return $"{a} + {b} = {a + b}";
+    }
+#endif
 }

@@ -6,6 +6,9 @@ using UnityEngine.UI;
 public class FixTestPanel : MonoBehaviour
 {
     public Text ShowInfo;
+
+    public SinaWeiboDevInfo _test;
+
     void Awake()
     {
         Button[] buttonList = GetComponentsInChildren<Button>();
@@ -15,6 +18,7 @@ public class FixTestPanel : MonoBehaviour
             string btnName = button.name;
             button.onClick.AddListener(() => { Invoke($"On{btnName}Call", 0f); });
         }
+
     }
 
     /// <summary>
@@ -24,9 +28,9 @@ public class FixTestPanel : MonoBehaviour
     {
         Debug.Log("----- OnSimpleFixCall Began -----");
         SimpleFix sp = new SimpleFix();
-        sp.Add(1, 2);
-        sp.Add("Hello", "World");
-        SimpleFix.Add(1, 2);
+        ShowInfo.text = sp.Add(1, 2);
+        ShowInfo.text += "\n" + sp.Add("Hello", "World");
+        ShowInfo.text += "\n" + SimpleFix.Add(1, 2);
         Debug.Log("----- OnSimpleFixCall Ended -----");
     }
 
@@ -147,5 +151,15 @@ public class FixTestPanel : MonoBehaviour
         int a = 2, b = 1;
         ShowInfo.text = $"{a} + {b} = {AddFunctionFix.Add(a, b).ToString()}";
         Debug.Log("----- OnAddFunctionFixCall Ended -----");
+    }
+
+    /// <summary>
+    /// 数组初始化测试修复
+    /// </summary>
+    void OnArrayInitialFixCall()
+    {
+        Debug.Log("----- OnArrayInitialFixCall Began -----");
+        ShowInfo.text = ArrayInitialFix.PrintArray();
+        Debug.Log("----- OnArrayInitialFixCall Began -----");
     }
 }

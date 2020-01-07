@@ -62,3 +62,6 @@ crashlytics-build.properties
 Assets/StreamingAssets/IL*
 AndroidProj
 output
+output_il2cpp
+apk
+AndroidProj

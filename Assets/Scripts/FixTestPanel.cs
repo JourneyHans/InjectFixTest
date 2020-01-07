@@ -162,4 +162,17 @@ public class FixTestPanel : MonoBehaviour
         ShowInfo.text = ArrayInitialFix.PrintArray();
         Debug.Log("----- OnArrayInitialFixCall Began -----");
     }
+
+    /// <summary>
+    /// 结构体测试
+    /// </summary>
+    void OnStructTestFixCall()
+    {
+        Debug.Log("----- OnStructTestFixCall Began -----");
+        StructTestFix stf = new StructTestFix();
+        PlayerSwitchEvent evt = new PlayerSwitchEvent();
+        int a = 1;
+        stf.OnProcess(in a);
+        Debug.Log("----- OnStructTestFixCall Began -----");
+    }
 }

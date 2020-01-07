@@ -62,7 +62,7 @@ namespace IFix.Editor
         //备份文件的时间戳生成格式
         const string TIMESTAMP_FORMAT = "yyyyMMddHHmmss";
 
-        private static string _targeScriptAssembliesFolder = "";
+        private static string _targetScriptAssembliesFolder = "";
 
         //system("mono ifix.exe [args]")
         public static void CallIFix(List<string> args)
@@ -260,7 +260,7 @@ namespace IFix.Editor
             {
 
                 var core_path = "./Assets/Plugins/IFix.Core.dll";
-                var assembly_path = $"./Library/{_targeScriptAssembliesFolder}/{assembly}.dll";
+                var assembly_path = $"./Library/{_targetScriptAssembliesFolder}/{assembly}.dll";
                 var patch_path = string.Format("./{0}.ill.bytes", assembly);
                 List<string> args = new List<string>() { "-inject", core_path, assembly_path,
                     processCfgPath, patch_path, assembly_path };
@@ -293,10 +293,10 @@ namespace IFix.Editor
                 return;
             }
 
-            _targeScriptAssembliesFolder = "PlayerScriptAssemblies";
-            if (!Directory.Exists($"./Library/{_targeScriptAssembliesFolder}/"))
+            _targetScriptAssembliesFolder = "PlayerScriptAssemblies";
+            if (!Directory.Exists($"./Library/{_targetScriptAssembliesFolder}/"))
             {
-                _targeScriptAssembliesFolder = "ScriptAssemblies";
+                _targetScriptAssembliesFolder = "ScriptAssemblies";
             }
 
             foreach (var assembly in injectAssemblys)
@@ -328,7 +328,7 @@ namespace IFix.Editor
                 Directory.CreateDirectory(BACKUP_PATH);
             }
 
-            var scriptAssembliesDir = $"./Library/{_targeScriptAssembliesFolder}/";
+            var scriptAssembliesDir = $"./Library/{_targetScriptAssembliesFolder}/";
 
             foreach (var assembly in injectAssemblys)
             {
@@ -359,7 +359,7 @@ namespace IFix.Editor
         /// <param name="ts">时间戳</param>
         static void doRestore(string ts)
         {
-            var scriptAssembliesDir = $"./Library/{_targeScriptAssembliesFolder}/";
+            var scriptAssembliesDir = $"./Library/{_targetScriptAssembliesFolder}/";
 
             foreach (var assembly in injectAssemblys)
             {
@@ -778,7 +778,7 @@ namespace IFix.Editor
                 foreach (var assembly in injectAssemblys)
                 {
                     string patchFile = $"{assembly}.patch.bytes";
-                    GenPatch(assembly, $"./Library/{_targeScriptAssembliesFolder}/{assembly}.dll",
+                    GenPatch(assembly, $"./Library/{_targetScriptAssembliesFolder}/{assembly}.dll",
                         "./Assets/Plugins/IFix.Core.dll", patchFile);
 
                     // 移动补丁文件到StreamingAssets下

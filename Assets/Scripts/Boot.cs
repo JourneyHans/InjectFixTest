@@ -17,7 +17,7 @@ public class Boot : SingletonUnity<Boot>
 
     void Awake()
     {
-        _patchPath = Application.streamingAssetsPath + "/IL/Assembly-CSharp.patch.bytes";
+        _patchPath = Application.streamingAssetsPath + "/IL/Main_IL.bytes";
 
         LoadPatchBtn.onClick.AddListener(StartPatch);
         UnloadPatchBtn.onClick.AddListener(UnloadPatch);

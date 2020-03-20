@@ -160,19 +160,17 @@ public class FixTestPanel : MonoBehaviour
     {
         Debug.Log("----- OnArrayInitialFixCall Began -----");
         ShowInfo.text = ArrayInitialFix.PrintArray();
-        Debug.Log("----- OnArrayInitialFixCall Began -----");
+        Debug.Log("----- OnArrayInitialFixCall Ended -----");
     }
 
     /// <summary>
-    /// 结构体测试
+    /// 枚举测试
     /// </summary>
-    void OnStructTestFixCall()
+    void OnEnumParseFixCall()
     {
-        Debug.Log("----- OnStructTestFixCall Began -----");
-        StructTestFix stf = new StructTestFix();
-        PlayerSwitchEvent evt = new PlayerSwitchEvent();
-        int a = 1;
-        stf.OnProcess(in a);
-        Debug.Log("----- OnStructTestFixCall Began -----");
+        Debug.Log("----- OnEnumParseFixCall Began -----");
+        EnumParse colorEnum = new EnumParse();
+        ShowInfo.text = colorEnum.PrintEnum();
+        Debug.Log("----- OnEnumParseFixCall Ended -----");
     }
 }

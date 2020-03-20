@@ -223,10 +223,14 @@ namespace IFix.Editor
                 "IFix.ReverseWrapperAttribute",
             });
 
+            var filters = Configure.GetFilters();
+
             var processCfgPath = "./process_cfg";
 
             //该程序集是否有配置了些类，如果没有就跳过注入操作
             bool hasSomethingToDo = false;
+
+            var blackList = new List<MethodInfo>();
 
             using (BinaryWriter writer = new BinaryWriter(new FileStream(processCfgPath, FileMode.Create,
                 FileAccess.Write)))
@@ -252,8 +256,28 @@ namespace IFix.Editor
                     {
                         writer.Write(GetCecilTypeName(cfgItem.Key));
                         writer.Write(cfgItem.Value);
+                        if (filters.Count > 0 && kv.Key == "IFix.IFixAttribute")
+                        {
+                            foreach(var method in cfgItem.Key.GetMethods(BindingFlags.Instance 
+                                | BindingFlags.Static | BindingFlags.Public 
+                                | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
+                            {
+                                foreach(var filter in filters)
+                                {
+                                    if ((bool)filter.Invoke(null, new object[]
+                                    {
+                                        method
+                                    }))
+                                    {
+                                        blackList.Add(method);
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
+
+                writeMethods(writer, blackList);
             }
 
             if (hasSomethingToDo)
@@ -293,11 +317,9 @@ namespace IFix.Editor
                 return;
             }
 
-            _targetScriptAssembliesFolder = "PlayerScriptAssemblies";
-            if (!Directory.Exists($"./Library/{_targetScriptAssembliesFolder}/"))
-            {
-                _targetScriptAssembliesFolder = "ScriptAssemblies";
-            }
+            _targetScriptAssembliesFolder = GetScriptAssembliesFolder();
+
+            UnityEngine.Debug.Log("[ILFixEditor] InjectAssembly... folder is : " + _targetScriptAssembliesFolder);
 
             foreach (var assembly in injectAssemblys)
             {
@@ -309,12 +331,28 @@ namespace IFix.Editor
             AssetDatabase.Refresh();
         }
 
+        private static string GetScriptAssembliesFolder()
+        {
+            var assembliesFolder = "PlayerScriptAssemblies";
+            if (!Directory.Exists(string.Format("./Library/{0}/", assembliesFolder)))
+            {
+                assembliesFolder = "ScriptAssemblies";
+            }
+            return assembliesFolder;
+        }
+
         //默认的注入及备份程序集
         //另外可以直接调用InjectAssembly对其它程序集进行注入。
         static string[] injectAssemblys = new string[]
         {
             "Assembly-CSharp",
             "Assembly-CSharp-firstpass"
+        };
+
+        //注入的程序集对应的补丁名称
+        static string[] patchAssmblysNames = {
+            "Main_IL",
+            "Plugin_IL",
         };
 
         /// <summary>
@@ -629,11 +667,8 @@ namespace IFix.Editor
 
             ScriptCompilationResult scriptCompilationResult = PlayerBuildInterface.CompilePlayerScripts(scriptCompilationSettings, outputDir);
 
-            foreach (var assembly in injectAssemblys)
-            {
-                GenPatch(assembly, string.Format("{0}/{1}.dll", outputDir, assembly),
-                    "./Assets/Plugins/IFix.Core.dll", string.Format("{0}{1}.patch.bytes", patchOutputDir, assembly));
-            }
+            // 走自定义生成补丁函数，统一处理
+            CustomizedGenPatch();
 #else
             throw new NotImplementedException();
             //var compileArgFile = "Temp/ifix/unity_" + platform + "_compile_argument";
@@ -648,6 +683,50 @@ namespace IFix.Editor
             //File.Delete(tmpDllPath);
             //File.Delete(tmpDllPath + ".mdb");
 #endif
+        }
+
+        /// <summary>
+        /// 自定义生成补丁函数，整合Fix和Fix(Android/iOS)生成补丁的过程
+        /// </summary>
+        static void CustomizedGenPatch(string assemblyCSharpPath = null)
+        {
+            string destinationDir = $"{Application.streamingAssetsPath}/IL";
+            if (Directory.Exists(destinationDir))
+            {
+                Directory.Delete(destinationDir, true);
+            }
+            Directory.CreateDirectory(destinationDir);
+
+            for (var i = 0; i < injectAssemblys.Length; i++)
+            {
+                var assembly = injectAssemblys[i];
+                var assemblyToPatchName = patchAssmblysNames[i];
+                string patchFile = $"{assemblyToPatchName}.bytes";
+                if (string.IsNullOrEmpty(assemblyCSharpPath))
+                {
+                    assemblyCSharpPath = "./Temp/ifix/";
+                }
+                GenPatch(assembly, $"{assemblyCSharpPath}{assembly}.dll", "./Assets/Plugins/IFix.Core.dll",
+                    patchFile);
+
+                // 移动补丁到StreamingAssets下
+                if (File.Exists(patchFile))
+                {
+                    string destinationFile = $"{destinationDir}/{patchFile}";
+                    if (File.Exists(destinationFile))
+                    {
+                        File.Delete(destinationFile);
+                    }
+
+                    File.Move(patchFile, destinationFile);
+                }
+            }
+
+            // 完成后打开文件夹
+            if (!Application.isBatchMode)
+            {
+                EditorUtility.RevealInFinder(destinationDir);
+            }
         }
 
         //把方法签名写入文件
@@ -775,28 +854,8 @@ namespace IFix.Editor
             EditorUtility.DisplayProgressBar("Generate Patch for Edtior", "patching...", 0);
             try
             {
-                foreach (var assembly in injectAssemblys)
-                {
-                    string patchFile = $"{assembly}.patch.bytes";
-                    GenPatch(assembly, $"./Library/{_targetScriptAssembliesFolder}/{assembly}.dll",
-                        "./Assets/Plugins/IFix.Core.dll", patchFile);
-
-                    // 移动补丁文件到StreamingAssets下
-                    string destinationDir = Application.streamingAssetsPath + "/IL";
-                    if (!Directory.Exists(destinationDir))
-                    {
-                        Directory.CreateDirectory(destinationDir);
-                    }
-                    if (File.Exists(patchFile))
-                    {
-                        string destinationFile = destinationDir + "/" + patchFile;
-                        if (File.Exists(destinationFile))
-                        {
-                            File.Delete(destinationFile);
-                        }
-                        File.Move(patchFile, destinationDir + "/" + patchFile);
-                    }
-                }
+                // 走自定义生成补丁函数，统一处理
+                CustomizedGenPatch($"./Library/{GetScriptAssembliesFolder()}/");
             }
             catch (Exception e)
             {
@@ -836,21 +895,17 @@ namespace IFix.Editor
             }
             EditorUtility.ClearProgressBar();
         }
-
-        [MenuItem("InjectFix/Fix(Windows)", false, 5)]
-        public static void CompileToWindows()
-        {
-            EditorUtility.DisplayProgressBar("Generate Patch for Windows", "patching...", 0);
-            try
-            {
-                GenPlatformPatch(Platform.standalone, "");
-            }
-            catch (Exception e)
-            {
-                UnityEngine.Debug.LogError(e);
-            }
-            EditorUtility.ClearProgressBar();
-        }
 #endif
+        [MenuItem("InjectFix/打开补丁文件夹", false)]
+        public static void RevealInFinder()
+        {
+            string destinationDir = $"{Application.streamingAssetsPath}/IL";
+            if (!Directory.Exists(destinationDir))
+            {
+                EditorUtility.DisplayDialog("错误", "找不到补丁文件", "确认");
+                return;
+            }
+            EditorUtility.RevealInFinder(destinationDir);
+        }
     }
 }

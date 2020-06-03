@@ -643,7 +643,7 @@ PlayerSettings:
   webGLThreadsSupport: 0
   webGLWasmStreaming: 0
   scriptingDefineSymbols:
-    1: 
+    1: PATCH_VERSION
   platformArchitecture: {}
   scriptingBackend:
     Android: 1

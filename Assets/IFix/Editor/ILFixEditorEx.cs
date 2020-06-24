@@ -55,5 +55,7 @@ public class ILFixEditorEx
         scriptCompilationSettings.group = BuildTargetGroup.Standalone;
         scriptCompilationSettings.target = BuildTarget.StandaloneWindows;
         PlayerBuildInterface.CompilePlayerScripts(scriptCompilationSettings, outputDir);
+
+        AssetDatabase.Refresh();
     }
 }

@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System.IO;
+using UnityEngine;
 
 /// <summary>
 /// 路径工具类
@@ -59,5 +60,36 @@ public class PathUtil
 #else
         return "";
 #endif
+    }
+
+    public static byte[] ReadStreamingAssetsBytes(string path)
+    {
+#if !UNITY_EDITOR && UNITY_ANDROID
+        var www = new WWW(Application.streamingAssetsPath +"/"+ path);
+        while (!www.isDone) {}
+        return www.bytes;
+#elif !UNITY_EDITOR && UNITY_IPHONE
+        return SafeReadAllBytes(Application.streamingAssetsPath+"/" + path);
+#else
+        return SafeReadAllBytes(Application.streamingAssetsPath + "/" + path);
+#endif
+    }
+
+    public static byte[] SafeReadAllBytes(string path)
+    {
+        try
+        {
+            if (!File.Exists(path))
+            {
+                return null;
+            }
+            return File.ReadAllBytes(path);
+        }
+        catch
+        {
+            // ignored
+        }
+
+        return null;
     }
 }

@@ -8,6 +8,7 @@ using UnityEngine.UI;
 
 public class Boot : SingletonUnity<Boot>
 {
+    public bool EnableIFix = true;
     public Button LoadPatchBtn;
     public Button UnloadPatchBtn;
 

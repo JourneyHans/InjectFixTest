@@ -15,6 +15,7 @@ using System.Diagnostics;
 using System.Text.RegularExpressions;
 using System.Text;
 using System.Reflection;
+using UnityEditor.Build.Reporting;
 #if UNITY_2018_3_OR_NEWER
 using UnityEditor.Build.Player;
 #endif
@@ -25,7 +26,7 @@ namespace IFix.Editor
     public class VersionSelector : EditorWindow
     {
         public string buttonText = "Patch";
-        public string[] options = new string[] {};
+        public string[] options = new string[] { };
         public int index = 0;
         public Action<int> callback = null;
 
@@ -57,11 +58,14 @@ namespace IFix.Editor
 
     public class IFixEditor
     {
+        public const string CoreDllPath = "./Assets/Script/Modules/Base/IFix/IFix.Core.dll";
+
         //备份目录
         const string BACKUP_PATH = "./IFixDllBackup";
         //备份文件的时间戳生成格式
         const string TIMESTAMP_FORMAT = "yyyyMMddHHmmss";
 
+        // 注入Assembly的文件夹
         private static string _targetScriptAssembliesFolder = "";
 
         //system("mono ifix.exe [args]")
@@ -109,7 +113,7 @@ namespace IFix.Editor
             //UnityEngine.Debug.Log(hotfix_injection.StartInfo.Arguments);
 
             StringBuilder exceptionInfo = null;
-            while(!hotfix_injection.StandardOutput.EndOfStream)
+            while (!hotfix_injection.StandardOutput.EndOfStream)
             {
                 string line = hotfix_injection.StandardOutput.ReadLine();
                 if (exceptionInfo != null)
@@ -148,7 +152,7 @@ namespace IFix.Editor
         {
             if (EditorApplication.isCompiling || Application.isPlaying)
             {
-                UnityEngine.Debug.LogError("compiling or playing");
+                EditorUtility.DisplayDialog("错误", "正在编译或运行，等待菊花消失再试一次", "确定");
                 return;
             }
             EditorUtility.DisplayProgressBar("Inject", "injecting...", 0);
@@ -156,30 +160,17 @@ namespace IFix.Editor
             {
                 InjectAllAssemblys();
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 UnityEngine.Debug.LogError(e);
             }
             EditorUtility.ClearProgressBar();
         }
 
-        public static bool AutoInject = true; //可以在外部禁用掉自动注入
-
-        public static bool InjectOnce = false; //AutoInjectAssemblys只调用一次，可以防止自动化打包时，很多场景导致AutoInjectAssemblys被多次调用
-
-        static bool injected = false;
-
-        [UnityEditor.Callbacks.PostProcessScene]
-        public static void AutoInjectAssemblys()
+        public static void AutoInjectAssemblys(object obj)
         {
-            if (AutoInject && !injected)
-            {
-                InjectAllAssemblys();
-                if (InjectOnce)
-                {
-                    injected = true;
-                }
-            }
+            UnityEngine.Debug.Log("[ILFixEditor] Comilation finished, begin inject...");
+            InjectAllAssemblys();
         }
 
         //获取备份文件信息
@@ -258,11 +249,11 @@ namespace IFix.Editor
                         writer.Write(cfgItem.Value);
                         if (filters.Count > 0 && kv.Key == "IFix.IFixAttribute")
                         {
-                            foreach(var method in cfgItem.Key.GetMethods(BindingFlags.Instance 
-                                | BindingFlags.Static | BindingFlags.Public 
+                            foreach (var method in cfgItem.Key.GetMethods(BindingFlags.Instance
+                                | BindingFlags.Static | BindingFlags.Public
                                 | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
                             {
-                                foreach(var filter in filters)
+                                foreach (var filter in filters)
                                 {
                                     if ((bool)filter.Invoke(null, new object[]
                                     {
@@ -283,15 +274,15 @@ namespace IFix.Editor
             if (hasSomethingToDo)
             {
 
-                var core_path = "./Assets/Plugins/IFix.Core.dll";
+                var core_path = CoreDllPath;
                 var assembly_path = $"./Library/{_targetScriptAssembliesFolder}/{assembly}.dll";
-                var patch_path = string.Format("./{0}.ill.bytes", assembly);
+                var patch_path = $"./{assembly}.ill.bytes";
                 List<string> args = new List<string>() { "-inject", core_path, assembly_path,
                     processCfgPath, patch_path, assembly_path };
 
                 foreach (var path in
                     (from asm in AppDomain.CurrentDomain.GetAssemblies()
-                        select Path.GetDirectoryName(asm.ManifestModule.FullyQualifiedName)).Distinct())
+                     select Path.GetDirectoryName(asm.ManifestModule.FullyQualifiedName)).Distinct())
                 {
                     try
                     {
@@ -314,18 +305,19 @@ namespace IFix.Editor
         {
             if (EditorApplication.isCompiling || Application.isPlaying)
             {
+                UnityEngine.Debug.Log($"[ILFixEditor] isComiling: {EditorApplication.isCompiling} isPlaying: {Application.isPlaying}");
                 return;
             }
 
             _targetScriptAssembliesFolder = GetScriptAssembliesFolder();
 
             UnityEngine.Debug.Log("[ILFixEditor] InjectAssembly... folder is : " + _targetScriptAssembliesFolder);
-
             foreach (var assembly in injectAssemblys)
             {
                 InjectAssembly(assembly);
             }
-            
+
+            UnityEngine.Debug.Log("[ILFixEditor] InjectAssembly finished");
             //doBackup(DateTime.Now.ToString(TIMESTAMP_FORMAT));
 
             AssetDatabase.Refresh();
@@ -343,16 +335,15 @@ namespace IFix.Editor
 
         //默认的注入及备份程序集
         //另外可以直接调用InjectAssembly对其它程序集进行注入。
-        static string[] injectAssemblys = new string[]
-        {
+        static string[] injectAssemblys = {
             "Assembly-CSharp",
             "Assembly-CSharp-firstpass"
         };
 
         //注入的程序集对应的补丁名称
         static string[] patchAssmblysNames = {
-            "Main_IL",
-            "Plugin_IL",
+            IFixManager.MainPatchName,
+            IFixManager.PluginPatchName,
         };
 
         /// <summary>
@@ -498,7 +489,7 @@ namespace IFix.Editor
             foreach (var file in Directory.GetFiles(dir))
             {
                 //排除调Editor下的东西
-                if (file.IndexOf(Path.DirectorySeparatorChar + "Editor" + Path.DirectorySeparatorChar) > 0 )
+                if (file.IndexOf(Path.DirectorySeparatorChar + "Editor" + Path.DirectorySeparatorChar) > 0)
                 {
                     continue;
                 }
@@ -515,7 +506,7 @@ namespace IFix.Editor
                 }
             }
 
-            foreach(var subDir in Directory.GetDirectories(dir))
+            foreach (var subDir in Directory.GetDirectories(dir))
             {
                 appendDirectory(src, subDir);
             }
@@ -571,7 +562,8 @@ namespace IFix.Editor
 #if (UNITY_EDITOR || XLUA_GENERAL) && !NET_STANDARD_2_0
                     }
 #endif
-                } catch { }
+                }
+                catch { }
             }
 
             cmd.AppendLine(compileTemplate);
@@ -636,13 +628,13 @@ namespace IFix.Editor
             {
                 UnityEngine.Debug.Log(compileProcess.StandardOutput.ReadLine());
             }
-            
+
             compileProcess.WaitForExit();
         }
 
         //生成特定平台的patch
         public static void GenPlatformPatch(Platform platform, string patchOutputDir,
-            string corePath = "./Assets/Plugins/IFix.Core.dll")
+                                            string corePath = CoreDllPath)
         {
             var outputDir = "Temp/ifix";
             Directory.CreateDirectory("Temp");
@@ -654,7 +646,7 @@ namespace IFix.Editor
                 scriptCompilationSettings.group = BuildTargetGroup.Android;
                 scriptCompilationSettings.target = BuildTarget.Android;
             }
-            else if(platform == Platform.ios)
+            else if (platform == Platform.ios)
             {
                 scriptCompilationSettings.group = BuildTargetGroup.iOS;
                 scriptCompilationSettings.target = BuildTarget.iOS;
@@ -686,7 +678,7 @@ namespace IFix.Editor
         }
 
         /// <summary>
-        /// 自定义生成补丁函数，整合Fix和Fix(Android/iOS)生成补丁的过程
+        /// 自走棋项目自定义生成补丁函数，整合Fix和Fix(Android/iOS)生成补丁的过程
         /// </summary>
         static void CustomizedGenPatch(string assemblyCSharpPath = null)
         {
@@ -701,12 +693,13 @@ namespace IFix.Editor
             {
                 var assembly = injectAssemblys[i];
                 var assemblyToPatchName = patchAssmblysNames[i];
-                string patchFile = $"{assemblyToPatchName}.bytes";
+//                string patchFile = $"{assemblyToPatchName}_{AppUtil.GetAppVersion()}.bytes";
+                string patchFile = $"{assemblyToPatchName}_version_code.bytes";
                 if (string.IsNullOrEmpty(assemblyCSharpPath))
                 {
                     assemblyCSharpPath = "./Temp/ifix/";
                 }
-                GenPatch(assembly, $"{assemblyCSharpPath}{assembly}.dll", "./Assets/Plugins/IFix.Core.dll",
+                GenPatch(assembly, $"{assemblyCSharpPath}{assembly}.dll", CoreDllPath,
                     patchFile);
 
                 // 移动补丁到StreamingAssets下
@@ -796,7 +789,7 @@ namespace IFix.Editor
         /// <param name="assemblyCSharpPath">程序集路径</param>
         /// <param name="corePath">IFix.Core.dll所在路径</param>
         /// <param name="patchPath">生成的patch的保存路径</param>
-        public static void GenPatch(string assembly, string assemblyCSharpPath, string corePath = "./Assets/Plugins/IFix.Core.dll", string patchPath = "Assembly-CSharp.patch.bytes")
+        public static void GenPatch(string assembly, string assemblyCSharpPath, string corePath = CoreDllPath, string patchPath = "Assembly-CSharp.patch.bytes")
         {
             var patchMethods = Configure.GetTagMethods(typeof(PatchAttribute), assembly).ToList();
             var genericMethod = patchMethods.FirstOrDefault(m => hasGenericParameter(m));
@@ -831,7 +824,7 @@ namespace IFix.Editor
 
             foreach (var path in
                 (from asm in AppDomain.CurrentDomain.GetAssemblies()
-                    select Path.GetDirectoryName(asm.ManifestModule.FullyQualifiedName)).Distinct())
+                 select Path.GetDirectoryName(asm.ManifestModule.FullyQualifiedName)).Distinct())
             {
                 try
                 {
@@ -851,6 +844,11 @@ namespace IFix.Editor
         [MenuItem("InjectFix/Fix", false, 2)]
         public static void Patch()
         {
+            if (EditorApplication.isCompiling || Application.isPlaying)
+            {
+                EditorUtility.DisplayDialog("错误", "正在编译或运行，等待菊花消失再试一次", "确定");
+                return;
+            }
             EditorUtility.DisplayProgressBar("Generate Patch for Edtior", "patching...", 0);
             try
             {
@@ -869,12 +867,17 @@ namespace IFix.Editor
         [MenuItem("InjectFix/Fix(Android)", false, 3)]
         public static void CompileToAndroid()
         {
+            if (EditorApplication.isCompiling || Application.isPlaying)
+            {
+                EditorUtility.DisplayDialog("错误", "正在编译或运行，等待菊花消失再试一次", "确定");
+                return;
+            }
             EditorUtility.DisplayProgressBar("Generate Patch for Android", "patching...", 0);
             try
             {
                 GenPlatformPatch(Platform.android, "");
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 UnityEngine.Debug.LogError(e);
             }
@@ -884,12 +887,17 @@ namespace IFix.Editor
         [MenuItem("InjectFix/Fix(IOS)", false, 4)]
         public static void CompileToIOS()
         {
+            if (EditorApplication.isCompiling || Application.isPlaying)
+            {
+                EditorUtility.DisplayDialog("错误", "正在编译或运行，等待菊花消失再试一次", "确定");
+                return;
+            }
             EditorUtility.DisplayProgressBar("Generate Patch for IOS", "patching...", 0);
             try
             {
                 GenPlatformPatch(Platform.ios, "");
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 UnityEngine.Debug.LogError(e);
             }
@@ -906,6 +914,132 @@ namespace IFix.Editor
                 return;
             }
             EditorUtility.RevealInFinder(destinationDir);
+        }
+
+        [MenuItem("InjectFix/清理标签", false)]
+        public static void RemovePatchTag()
+        {
+            // 打了[IFix.Patch]标签的方法
+            List<MethodInfo> patchMethods = new List<MethodInfo>();
+
+            // 打了[IFix.Interpret]标签的方法
+            List<MethodInfo> newMethods = new List<MethodInfo>();
+            for (int i = 0; i < injectAssemblys.Length; i++)
+            {
+                string assembly = injectAssemblys[i];
+                EditorUtility.DisplayProgressBar("Check Tag...", $"Checking \"{assembly}.dll\"...", (float)i / injectAssemblys.Length);
+                // 注意这里排除了一个作为测试用的补丁函数
+                patchMethods.AddRange(Configure.GetTagMethods(typeof(PatchAttribute), assembly).Where(m => m.Name != "PatchAvailableTest").ToList());
+                newMethods.AddRange(Configure.GetTagMethods(typeof(InterpretAttribute), assembly).ToList());
+            }
+            EditorUtility.ClearProgressBar();
+
+            if (patchMethods.Count + newMethods.Count <= 0)
+            {
+                EditorUtility.DisplayDialog("清理热修标签", "没有需要清理的标签", "确认");
+                return;
+            }
+
+            string patchedNumber = $"打了Patch标签的有：{patchMethods.Count}个";
+            string interpretNumber = $"打了Interpret标签的有：{newMethods.Count}个";
+            string des = $"已找到{patchedNumber}\n{interpretNumber}\n清理时间大约几分钟，是否确认清理标签？";
+            if (EditorUtility.DisplayDialog("警告", des, "确认", "取消"))
+            {
+                DoRemovePatchTags();
+            }
+        }
+
+        /// <summary>
+        /// 根据文件名（带全路径）跳过某些文件
+        /// </summary>
+        /// <param name="file"></param>
+        /// <returns></returns>
+        private static bool IsSkippedByFile(string file)
+        {
+            if (file.Contains("IFixManager.cs") ||
+                file.Contains("\\Editor\\"))
+            {
+                return true;
+            }
+            return false;
+        }
+
+        private static void DoRemovePatchTags()
+        {
+            string[] files = Directory.GetFiles(Application.dataPath, "*.cs", SearchOption.AllDirectories);
+            UnityEngine.Debug.Log($"Script count: {files.Length}");
+
+            int patchedCount = 0;
+
+            List<string> fileNeedToChangeList = new List<string>();
+            for (int i = 0; i < files.Length; i++)
+            {
+                string file = files[i];
+                if (IsSkippedByFile(file))
+                {
+                    //                    UnityEngine.Debug.Log("skipped file: " + file);
+                    continue;
+                }
+                //                UnityEngine.Debug.Log("file: " + file);
+                StreamReader reader = new StreamReader(file, Encoding.Default);
+                string strLine;
+
+                bool needToRewrite = false;
+
+                while ((strLine = reader.ReadLine()) != null)
+                {
+                    if (strLine.StartsWith("namespace Msg"))
+                    {
+                        // 简单跳过不热修的文件
+                        break;
+                    }
+                    string matchPattern = Regex.Replace(strLine, @"\s", "");
+                    if (matchPattern == "[IFix.Patch]" ||
+                        matchPattern == "[Patch]" ||
+                        matchPattern == "[IFix.Interpret]" ||
+                        matchPattern == "[Interpret]")
+                    {
+                        patchedCount++;
+                        needToRewrite = true;
+                    }
+                }
+
+                reader.Close();
+
+                if (needToRewrite)
+                {
+                    fileNeedToChangeList.Add(file);
+                }
+                EditorUtility.DisplayProgressBar("Clean Tag", $"Scanning...{i}/{files.Length}", (float)i / files.Length);
+            }
+
+            for (int j = 0; j < fileNeedToChangeList.Count; j++)
+            {
+                EditorUtility.DisplayProgressBar("Clean Tag", $"Cleaning...{j}/{fileNeedToChangeList.Count}", (float)j / fileNeedToChangeList.Count);
+                string replacedCode = string.Empty;
+                string file = fileNeedToChangeList[j];
+                StreamReader reader = new StreamReader(file, Encoding.Default);
+                string strLine;
+                while ((strLine = reader.ReadLine()) != null)
+                {
+                    string matchPattern = Regex.Replace(strLine, @"\s", "");
+                    if (matchPattern != "[IFix.Patch]" &&
+                        matchPattern != "[Patch]" &&
+                        matchPattern != "[IFix.Interpret]" &&
+                        matchPattern != "[Interpret]")
+                    {
+                        replacedCode += strLine + "\n";
+                    }
+                }
+                reader.Close();
+
+                StreamWriter writer = new StreamWriter(file, false, Encoding.Default);
+                writer.Write(replacedCode);
+                writer.Close();
+            }
+
+            AssetDatabase.Refresh();
+            EditorUtility.ClearProgressBar();
         }
     }
 }

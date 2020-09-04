@@ -47,15 +47,14 @@ public class ILFixEditorEx
     {
         Menu.SetChecked("InjectFix/SwitchToPatchMode", isPatch);
         PlayerSettings.SetScriptingDefineSymbolsForGroup(BuildTargetGroup.Standalone, newSymbols);
-
-        var outputDir = "Temp/ifix";
-        Directory.CreateDirectory("Temp");
-        Directory.CreateDirectory(outputDir);
-        ScriptCompilationSettings scriptCompilationSettings = new ScriptCompilationSettings();
-        scriptCompilationSettings.group = BuildTargetGroup.Standalone;
-        scriptCompilationSettings.target = BuildTarget.StandaloneWindows;
-        PlayerBuildInterface.CompilePlayerScripts(scriptCompilationSettings, outputDir);
-
         AssetDatabase.Refresh();
+
+//        var outputDir = "Temp/ifix";
+//        Directory.CreateDirectory("Temp");
+//        Directory.CreateDirectory(outputDir);
+//        ScriptCompilationSettings scriptCompilationSettings = new ScriptCompilationSettings();
+//        scriptCompilationSettings.group = BuildTargetGroup.Standalone;
+//        scriptCompilationSettings.target = BuildTarget.StandaloneWindows;
+//        PlayerBuildInterface.CompilePlayerScripts(scriptCompilationSettings, outputDir);
     }
 }

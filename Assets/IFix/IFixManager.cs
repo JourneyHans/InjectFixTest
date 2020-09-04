@@ -13,21 +13,23 @@ public class IFixManager : Singleton<IFixManager>
 
     private string _patchStreamingPath;
 
-    public string PatchInfo { set; get; }   // 补丁信息
+    public string PatchInfo { set; get; }
 
     // 捕获的补丁异常信息
-    public string InjectException { set; get; }
+    public string InjectException{ set; get; }
+
+    private bool _enableFix = true;
 
     protected override void Initialize()
     {
         base.Initialize();
-//        ResUtility.ResUpdateCallback += StartPatch;
+
     }
 
     protected override void Uninitialize()
     {
         base.Uninitialize();
-//        ResUtility.ResUpdateCallback -= StartPatch;
+
     }
 
     public void StartPatch()
@@ -38,11 +40,10 @@ public class IFixManager : Singleton<IFixManager>
             return;
         }
         string[] patchFiles = {
-            // TODO: 带版本号方便对应
 //            $"{MainPatchName}_{AppUtil.GetAppVersion()}.bytes",
 //            $"{PluginPatchName}_{AppUtil.GetAppVersion()}.bytes"
-            $"{MainPatchName}_version_code.bytes",
-            $"{PluginPatchName}_version_code.bytes"
+            $"{MainPatchName}_versionCode.bytes",
+            $"{PluginPatchName}_versionCode.bytes"
         };
         foreach (string patchFile in patchFiles)
         {
@@ -68,6 +69,7 @@ public class IFixManager : Singleton<IFixManager>
                     PatchManager.Load(new MemoryStream(patchBytes));
                     Debug.Log($"[IFixManager:FinishPath]{patchFile}");
 //                    PatchInfo = AppUtil.GetAppVersion();
+                    PatchInfo = "versionCode";
                 }
                 catch (Exception e)
                 {
@@ -90,7 +92,8 @@ public class IFixManager : Singleton<IFixManager>
     private bool CheckPatchAvailable()
     {
 #if UNITY_EDITOR
-        if (!Boot.Instance.EnableIFix)
+//        if (!Boot.Instance.EnableIFix)
+        if (!_enableFix)
         {
             Debug.Log("[IFixManager:CheckPatchAvailable] Editor Mode: ifix was disabled");
             return false;

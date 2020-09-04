@@ -18,7 +18,7 @@ public class Boot : SingletonUnity<Boot>
 
     void Awake()
     {
-        _patchPath = Application.streamingAssetsPath + "/IL/Main_IL.bytes";
+        _patchPath = Application.streamingAssetsPath + "/IL/Main_IL_versionCode.bytes";
 
         LoadPatchBtn.onClick.AddListener(StartPatch);
         UnloadPatchBtn.onClick.AddListener(UnloadPatch);
@@ -34,7 +34,7 @@ public class Boot : SingletonUnity<Boot>
         }
         else
         {
-            Debug.Log("Patch file path not exist: " + _patchPath);
+            Debug.LogError("Patch file path not exist: " + _patchPath);
         }
     }
 
